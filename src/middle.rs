@@ -1,4 +1,4 @@
-use actix_web::{http, HttpRequest, HttpMessage};
+use actix_web::{http, HttpRequest};
 use actix_web::body::MessageBody;
 use actix_web::dev::{ServiceResponse, ServiceRequest};
 use actix_web_lab::middleware::Next;
@@ -57,7 +57,6 @@ pub async fn middle_auth(
 ) -> Result<ServiceResponse<impl MessageBody>, actix_web::Error> {
     if req.method().eq(&Method::POST) || req.method().eq(&Method::GET) || req.method().eq(&Method::PUT) || req.method().eq(&Method::DELETE) {
         debug!("req: {:?}", req);
-
         match check_firebase(req.request()).await {
             Err(e) => match e {
                 CheckFirebaseErr::TokenDoeNotExist => Err(actix_web::error::ErrorUnauthorized("missing token header")),
