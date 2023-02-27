@@ -9,7 +9,7 @@ use crate::cruds::search_user_from_db;
 
 #[derive(Debug)]
 pub enum CheckFirebaseErr {
-    TokenIsInvalid,
+    TokenDoeNotExist,
     UserFirebaseNotFound,
     UserDbNotFound,
 }
@@ -22,7 +22,7 @@ pub async fn check_firebase(request: &HttpRequest) -> CheckFirebaseResult {
     // Authorization Header check
     let bearer = match request.headers().get("Authorization") {
         Some(bearer) => bearer,
-        None => return Err(CheckFirebaseErr::TokenIsInvalid),
+        None => return Err(CheckFirebaseErr::TokenDoeNotExist),
     };
     debug!("bearer: {:?}", bearer);
     // Exist on firebase check
@@ -41,6 +41,7 @@ pub async fn check_firebase(request: &HttpRequest) -> CheckFirebaseResult {
 
     Ok(true)
 }
+
 pub async fn middle_auth(
     req: ServiceRequest,
     next: Next<impl MessageBody>,
@@ -55,8 +56,8 @@ pub async fn middle_auth(
     debug!("req: {:?}", req);
     match check_firebase(req.request()).await {
         Err(e) => match e {
-            CheckFirebaseErr::TokenIsInvalid => return Err(actix_web::error::ErrorUnauthorized("token is invalid")),
-            CheckFirebaseErr::UserFirebaseNotFound => return Err(actix_web::error::ErrorImATeapot("Unimplemented")),
+            CheckFirebaseErr::TokenDoeNotExist => return Err(actix_web::error::ErrorUnauthorized("missing token header")),
+            CheckFirebaseErr::UserFirebaseNotFound => return Err(actix_web::error::ErrorUnauthorized("token does not exist on Firebase")),
             CheckFirebaseErr::UserDbNotFound => return Err(actix_web::error::ErrorImATeapot("Unimplemented")),
         },
         Ok(_) => return Ok(next.call(req).await?)
