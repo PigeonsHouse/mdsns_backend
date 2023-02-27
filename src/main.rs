@@ -1,9 +1,14 @@
-use actix_web::{App, HttpServer};
+use actix_web::{App, HttpServer, HttpResponse};
 use actix_web::middleware::Logger;
+use actix_session::{Session, SessionMiddleware, storage::CookieSessionStore};
 use dotenvy::dotenv;
 use env_logger::Env;
 use mdsns_backend::routers;
 mod auth;
+mod db;
+mod cruds;
+mod models;
+mod schema;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {

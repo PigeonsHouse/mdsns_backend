@@ -1,5 +1,7 @@
 use actix_web::{HttpRequest, HttpResponse};
 use fireauth::FireAuth;
+use crate::db::establish_connection;
+use crate::cruds::db_sign_in;
 
 #[derive(Debug)]
 pub enum MinimalAuthErr {
@@ -25,14 +27,11 @@ pub async fn minimal_auth(request: &HttpRequest) -> MinimalAuthResult {
         Err(_) => return Err(MinimalAuthErr::UserFirebaseNotFound),
 
     };
-    // TODO: diesel
-    /*
-    let conn = establish_connection();
-    match db_sign_in(&conn, user_local_id.clone()) {
+    let mut conn = establish_connection();
+    match db_sign_in(&mut conn, user_local_id.clone()) {
         true => (),
         false => return Err(MinimalAuthErr::UserDbNotFound),
     };
-    */
 
     Ok(user_local_id)
 }
