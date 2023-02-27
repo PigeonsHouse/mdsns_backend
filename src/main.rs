@@ -8,24 +8,12 @@ use env_logger::Env;
 use fireauth::api::RefreshIdToken;
 use futures::FutureExt;
 use log::{info, debug, error};
-use mdsns_backend::auth::{MinimalAuthResult, MinimalAuthErr};
 use mdsns_backend::routers;
-mod auth;
 mod db;
 mod cruds;
 mod models;
 mod schema;
-
-async fn middle_auth(
-    req: ServiceRequest,
-    next: Next<impl MessageBody>,
-) -> Result<ServiceResponse<impl MessageBody>, actix_web::Error> {
-    // pre-processing
-    debug!("{:?}", req);
-    let local_id = auth::minimal_auth(req.request()).await;
-    next.call(req).await
-    // post-processing
-}
+mod middle;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -33,7 +21,8 @@ async fn main() -> std::io::Result<()> {
     env_logger::init_from_env(Env::default().default_filter_or("debug"));
     HttpServer::new(|| {
         App::new()
-            .wrap(from_fn(middle_auth))
+            .wrap(from_fn(middle::middle_auth))
+            .service(routers::hello)
     })
         .bind(("127.0.0.1", 8080))?
         .run()
