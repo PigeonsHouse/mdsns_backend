@@ -19,8 +19,8 @@ pub struct User {
 
 #[derive(Deserialize)]
 pub struct GetPostList {
-    pub length: i32,
-    pub pages: i32
+    pub length: Option<i32>,
+    pub pages: Option<i32>
 }
 
 #[derive(Queryable, Serialize, Identifiable, Associations, Selectable, PartialEq)]
