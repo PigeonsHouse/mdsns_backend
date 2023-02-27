@@ -1,14 +1,12 @@
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
-use diesel::ExpressionMethods;
+use crate::schema::users;
 
 fn get_list_users(conn: &mut PgConnection) -> Vec<crate::models::User> {
-    use crate::schema::users;
-    use crate::models::User;
-    users::dsl::users.select((users::id, users::name, users::created_at, users::updated_at)).load(conn).expect("Error getting new user")
+    users::dsl::users.select((users::description ,users::id, users::name, users::created_at, users::updated_at)).load(conn).expect("Error getting new user")
 }
 
-pub fn db_sign_in(conn: &mut PgConnection, id: String) -> bool {
+pub fn search_user_from_db(conn: &mut PgConnection, id: String) -> bool {
     let user_vec = get_list_users(conn);
     match user_vec
         .iter()
@@ -17,3 +15,9 @@ pub fn db_sign_in(conn: &mut PgConnection, id: String) -> bool {
     None => return false,
     };
 }
+
+/*
+pub fn register_user(conn: &mut PgConnection, id: String) -> bool {
+    
+}
+*/
