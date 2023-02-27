@@ -1,11 +1,13 @@
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use diesel::result::Error;
-use crate::schema::users;
-use crate::models::{User, Post};
+use log::info;
+use serde_json::json;
+use crate::schema::{posts, users};
+use crate::models::{User, Post, PostInfo};
 
 fn get_list_users(conn: &mut PgConnection) -> Vec<User> {
-    users::dsl::users.select((users::id, users::description, users::name, users::created_at, users::updated_at)).load::<User>(conn).expect("Error getting new user")
+    users::dsl::users.select(User::as_select()).load::<User>(conn).expect("Error getting new user")
 }
 
 pub fn search_user_from_db(conn: &mut PgConnection, id: String) -> bool {
@@ -18,17 +20,16 @@ pub fn search_user_from_db(conn: &mut PgConnection, id: String) -> bool {
     };
 }
 
-<<<<<<< HEAD
-/*
-pub fn register_user(conn: &mut PgConnection, id: String) -> bool {
-    
-}
-*/
-=======
-pub fn get_posts(conn: &mut PgConnection, length: i32, pages: i32) -> Result<Vec<Post>, Error> {
-    let users = users::table.select((users::id, users::name, users::created_at, users::updated_at)).load::<User>(conn).unwrap();
-    let posts = Post::belonging_to(&users).load::<Post>(conn).unwrap();
+pub fn get_posts(conn: &mut PgConnection, length: i32, pages: i32) -> Result<Vec<PostInfo>, Error> {
+    // let all_users = users::table.select(User::as_select()).load::<User>(conn).unwrap();
+    // let raw_posts = Post::belonging_to(&all_users).load::<Post>(conn).unwrap().grouped_by(&all_users);
+    // let get_posts: Vec<(User, Vec<Post>)> = all_users.into_iter().zip(raw_posts).collect();
 
-    Ok(posts)
+    let post_data = posts::table.inner_join(users::table).select((Post::as_select(), User::as_select())).load::<(Post, User)>(conn).unwrap();
+    let mut post_info= vec![];
+    for i in post_data {
+        post_info.push(PostInfo { base_post: i.0, author: i.1, favorited_by: vec![], favorite_count: 0, replied_count: 0 })
+    }
+    info!("{}", json!(post_info));
+    Ok(post_info)
 }
->>>>>>> 3bd6455 (WIP)

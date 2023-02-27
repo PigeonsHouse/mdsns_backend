@@ -1,4 +1,3 @@
-#[macro_use]
 extern crate env_logger as logger;
 extern crate log;
 
