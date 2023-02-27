@@ -1,4 +1,4 @@
-use crate::models::{GetPostList, PostPost};
+use crate::models::{GetPostList, PostPost, ReplyTo};
 use crate::middle::{middle_get_user_id, CheckFirebaseErr};
 use actix_web::{HttpResponse, HttpRequest, error::Error, Responder, web::{Query, Path, Json}, get, post, delete};
 use crate::db::establish_connection;
@@ -12,13 +12,23 @@ pub async fn get_post_list(Query(get_post_list): Query<GetPostList>) -> Result<H
 }
 
 #[post("/posts")]
-pub async fn post_md(post_req: HttpRequest, post_json: Json<PostPost>) -> Result<HttpResponse, Error> {
+pub async fn post_md(
+    post_req: HttpRequest,
+    post_json: Json<PostPost>,
+    Query(reply_to): Query<ReplyTo>
+    ) -> Result<HttpResponse, Error> {
     let conn = &mut establish_connection();
     let auther_id: String = match middle_get_user_id(post_req).await {
         Ok(id) => id,
         Err(_) => return Ok(HttpResponse::Unauthorized().body("token is missed")),
     };
-    match create_new_post(conn, &auther_id, &post_json.content_md, &post_json.content_html) {
+    match create_new_post(
+        conn,
+        &auther_id,
+        &post_json.content_md,
+        &post_json.content_html,
+        &reply_to.reply_to
+        ) {
         Ok(info) => Ok(HttpResponse::Ok().json(info)),
         Err(_) => Ok(HttpResponse::InternalServerError().body("internal server error")),
     }

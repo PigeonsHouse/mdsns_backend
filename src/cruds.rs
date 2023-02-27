@@ -5,10 +5,10 @@ use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use diesel::{insert_into, delete};
 use diesel::result::Error;
-use log::error;
+use log::debug;
 use uuid::Uuid;
 use crate::schema::{posts, users, favorites};
-use crate::models::{User, NewUser, Post, PostInfo, PostPost, NewPost, NewFavorite};
+use crate::models::{User, NewUser, Post, PostInfo, PostPost, NewPost, NewFavorite, NewReply};
 
 fn get_list_users(conn: &mut PgConnection) -> Vec<User> {
     users::dsl::users.select(User::as_select()).load::<User>(conn).expect("Error getting new user")
@@ -104,12 +104,26 @@ pub fn create_new_post (
     conn: &mut PgConnection,
     author_id: &String,
     content_md: &String,
-    content_html: &String
+    content_html: &String,
+    reply_to: &Option<Uuid>
     ) -> Result<PostInfo, CreatePostErr> {
-    let new_post = NewPost{author_id, content_md, content_html};
-    insert_into(posts::dsl::posts).values(&new_post)
-        .execute(conn)
-        .expect("Failed to create new post");
+    match reply_to {
+        Some(r) => {
+            let reply_at = r;
+            debug!("reply_at: {:?}", reply_at);
+            let new_reply = NewReply{author_id, content_md, content_html, reply_at};
+            insert_into(posts::dsl::posts).values(&new_reply)
+            .execute(conn)
+            .expect("Failed to create new post");
+
+        },
+        None => {
+            let new_post = NewPost{author_id, content_md, content_html};
+            insert_into(posts::dsl::posts).values(&new_post)
+            .execute(conn)
+            .expect("Failed to create new post");
+        },
+    };
     let new_post_id: Uuid = posts::dsl::posts.select(posts::id)
         .first(conn)
         .expect("Error getting new post id");
