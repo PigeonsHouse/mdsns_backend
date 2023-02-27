@@ -107,13 +107,10 @@ pub fn create_new_post (
     content_html: &String
     ) -> Result<PostInfo, CreatePostErr> {
     let new_post = NewPost{author_id, content_md, content_html};
-    insert_into(posts::dsl::posts).values(&new_post)
-        .execute(conn)
+    let created_post = insert_into(posts::dsl::posts).values(&new_post)
+        .get_result::<Post>(conn)
         .expect("Failed to create new post");
-    let new_post_id: Uuid = posts::dsl::posts.select(posts::id)
-        .first(conn)
-        .expect("Error getting new post id");
-    match get_post_info_by_id(conn, new_post_id.to_string()) {
+    match get_post_info_by_id(conn, created_post.id.to_string()) {
         Ok(post_info) => Ok(post_info),
         Err(_) => Err(CreatePostErr::InternalServerError),
     }
