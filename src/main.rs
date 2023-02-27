@@ -18,6 +18,7 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(|| {
         let cors = Cors::permissive()
             .allowed_origin("localhost:8080")
+            .allowed_methods(vec!["GET", "POST", "PUT", "DELETE", "OPTION"])
             .max_age(3600);
         App::new()
             .wrap(cors)
