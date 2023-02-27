@@ -24,16 +24,16 @@ pub fn search_user_from_db(conn: &mut PgConnection, id: String) -> bool {
 }
 
 pub fn get_posts(conn: &mut PgConnection, length: i32, pages: i32) -> Result<Vec<PostInfo>, Error> {
-    // let all_users = users::table.select(User::as_select()).load::<User>(conn).unwrap();
-    // let raw_posts = Post::belonging_to(&all_users).load::<Post>(conn).unwrap().grouped_by(&all_users);
-    // let get_posts: Vec<(User, Vec<Post>)> = all_users.into_iter().zip(raw_posts).collect();
-
-    let post_data = posts::table.inner_join(users::table).select((Post::as_select(), User::as_select())).load::<(Post, User)>(conn).unwrap();
+    let post_data = posts::table.inner_join(users::table)
+        .select((Post::as_select(), User::as_select()))
+        .filter(posts::reply_at.is_null())
+        .limit(i64::from(length))
+        .offset(i64::from(pages))
+        .load::<(Post, User)>(conn).unwrap();
     let mut post_info = vec![];
     for i in post_data {
         post_info.push(PostInfo { base_post: i.0, author: i.1, favorited_by: vec![], favorite_count: 0, replied_count: 0 })
     }
-    info!("{}", json!(post_info));
     Ok(post_info)
 }
 
