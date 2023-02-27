@@ -15,3 +15,9 @@ pub fn search_user_from_db(conn: &mut PgConnection, id: String) -> bool {
     None => return false,
     };
 }
+
+/*
+pub fn register_user(conn: &mut PgConnection, id: String) -> bool {
+    
+}
+*/

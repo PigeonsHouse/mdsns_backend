@@ -36,7 +36,14 @@ pub async fn check_firebase(request: &HttpRequest) -> CheckFirebaseResult {
     let mut conn = establish_connection();
     match search_user_from_db(&mut conn, user_local_id.clone()) {
         true => (),
-        false => return Err(CheckFirebaseErr::UserDbNotFound),
+        false => {
+            // copy UserData from Firebase
+            let user_info = match auth.get_user_info(bearer.to_str().unwrap()).await {
+                Ok(user) => user,
+                Err(_) => return Err(CheckFirebaseErr::UserFirebaseNotFound),
+            };
+            
+        },
     };
 
     Ok(true)
@@ -46,23 +53,14 @@ pub async fn middle_auth(
     req: ServiceRequest,
     next: Next<impl MessageBody>,
 ) -> Result<ServiceResponse<impl MessageBody>, actix_web::Error> {
-    /*
-     match Exist on Firebase {
-        Ok => ()
-        Err => Responce 401
-     }
-     */
-    // pre-processing
     debug!("req: {:?}", req);
     match check_firebase(req.request()).await {
         Err(e) => match e {
             CheckFirebaseErr::TokenDoeNotExist => return Err(actix_web::error::ErrorUnauthorized("missing token header")),
             CheckFirebaseErr::UserFirebaseNotFound => return Err(actix_web::error::ErrorUnauthorized("token does not exist on Firebase")),
-            CheckFirebaseErr::UserDbNotFound => return Err(actix_web::error::ErrorImATeapot("Unimplemented")),
+            CheckFirebaseErr::UserDbNotFound => return Ok(next.call(req).await?)
         },
         Ok(_) => return Ok(next.call(req).await?)
     }
-    //next.call(req).await
-    // post-processing
 }
 
