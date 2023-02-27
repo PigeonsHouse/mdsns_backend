@@ -1,8 +1,9 @@
 use actix_web::body::MessageBody;
 use actix_web::dev::{Service, ServiceRequest, ServiceResponse};
-use actix_web::{App, HttpServer, HttpResponse};
+use actix_web::{App, HttpServer, HttpResponse, web};
 use actix_session::{Session, SessionMiddleware, storage::CookieSessionStore};
 use actix_web_lab::middleware::{Next, from_fn};
+use actix_web::middleware::Logger;
 use dotenvy::dotenv;
 use env_logger::Env;
 use fireauth::api::RefreshIdToken;
@@ -22,7 +23,11 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(|| {
         App::new()
             .wrap(from_fn(middle::middle_auth))
-            .service(routers::hello)
+            .wrap(Logger::default())
+            .service(
+                web::scope("/api")
+                    .route("/posts", web::get().to(routers::get_post_list))
+            )
     })
         .bind(("127.0.0.1", 8080))?
         .run()
