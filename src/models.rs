@@ -23,6 +23,11 @@ pub struct GetPostList {
     pub pages: Option<i32>
 }
 
+#[derive(Deserialize)]
+pub struct ReplyTo {
+    pub reply_to: Option<Uuid>
+}
+
 #[derive(Queryable, Serialize, Identifiable, Associations, Selectable, PartialEq)]
 #[diesel(table_name = posts)]
 #[diesel(belongs_to(User, foreign_key = author_id))]
@@ -60,6 +65,15 @@ pub struct NewPost<'a> {
     pub author_id: &'a String,
     pub content_md: &'a String,
     pub content_html: &'a String,
+}
+
+#[derive(Insertable)]
+#[diesel(table_name = posts)]
+pub struct NewReply<'a> {
+    pub author_id: &'a String,
+    pub content_md: &'a String,
+    pub content_html: &'a String,
+    pub reply_at: &'a Uuid,
 }
 
 #[derive(Insertable)]
