@@ -107,27 +107,23 @@ pub fn create_new_post (
     content_html: &String,
     reply_to: &Option<Uuid>
     ) -> Result<PostInfo, CreatePostErr> {
-    match reply_to {
+    let new_post = match reply_to {
         Some(r) => {
             let reply_at = r;
             debug!("reply_at: {:?}", reply_at);
             let new_reply = NewReply{author_id, content_md, content_html, reply_at};
             insert_into(posts::dsl::posts).values(&new_reply)
-            .execute(conn)
-            .expect("Failed to create new post");
-
+            .get_result::<Post>(conn)
+            .expect("Failed to create new post")
         },
         None => {
             let new_post = NewPost{author_id, content_md, content_html};
             insert_into(posts::dsl::posts).values(&new_post)
-            .execute(conn)
-            .expect("Failed to create new post");
+            .get_result::<Post>(conn)
+            .expect("Failed to create new post")
         },
     };
-    let new_post_id: Uuid = posts::dsl::posts.select(posts::id)
-        .first(conn)
-        .expect("Error getting new post id");
-    match get_post_info_by_id(conn, new_post_id.to_string()) {
+    match get_post_info_by_id(conn, new_post.id.to_string()) {
         Ok(post_info) => Ok(post_info),
         Err(_) => Err(CreatePostErr::InternalServerError),
     }
