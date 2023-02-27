@@ -1,4 +1,4 @@
-use actix_web::HttpRequest;
+use actix_web::{http, HttpRequest, HttpMessage};
 use actix_web::body::MessageBody;
 use actix_web::dev::{ServiceResponse, ServiceRequest};
 use actix_web_lab::middleware::Next;
@@ -6,6 +6,7 @@ use fireauth::FireAuth;
 use log::debug;
 use crate::db::establish_connection;
 use crate::cruds::{search_user_from_db, register_user};
+use http::Method;
 
 #[derive(Debug)]
 pub enum CheckFirebaseErr {
@@ -54,15 +55,37 @@ pub async fn middle_auth(
     req: ServiceRequest,
     next: Next<impl MessageBody>,
 ) -> Result<ServiceResponse<impl MessageBody>, actix_web::Error> {
-    debug!("req: {:?}", req);
-    match check_firebase(req.request()).await {
-        Err(e) => match e {
-            CheckFirebaseErr::TokenDoeNotExist => return Err(actix_web::error::ErrorUnauthorized("missing token header")),
-            CheckFirebaseErr::UserFirebaseNotFound => return Err(actix_web::error::ErrorUnauthorized("token does not exist on Firebase")),
-            CheckFirebaseErr::InternalDbError => return Err(actix_web::error::ErrorInternalServerError("register at local DB is failed")),
-            CheckFirebaseErr::UserDbNotFound => return Ok(next.call(req).await?)
-        },
-        Ok(_) => return Ok(next.call(req).await?)
+    if req.method().eq(&Method::POST) || req.method().eq(&Method::GET) || req.method().eq(&Method::PUT) || req.method().eq(&Method::DELETE) {
+        debug!("req: {:?}", req);
+
+        match check_firebase(req.request()).await {
+            Err(e) => match e {
+                CheckFirebaseErr::TokenDoeNotExist => Err(actix_web::error::ErrorUnauthorized("missing token header")),
+                CheckFirebaseErr::UserFirebaseNotFound => Err(actix_web::error::ErrorUnauthorized("token does not exist on Firebase")),
+                CheckFirebaseErr::InternalDbError => Err(actix_web::error::ErrorInternalServerError("register at local DB is failed")),
+                CheckFirebaseErr::UserDbNotFound => Ok(next.call(req).await?)
+            },
+            Ok(_) => Ok(next.call(req).await?)
+        }
+    } else {
+        Ok(next.call(req).await?)
     }
 }
 
+pub async fn middle_get_user_id(request: HttpRequest) -> Result<String, CheckFirebaseErr> {
+    let api_key: String = std::env::var("FIREBASE_API").expect("FIREBASE_API does not exist !");
+    let auth = FireAuth::new(api_key);
+    // Authorization Header check
+    let bearer = match request.headers().get("Authorization") {
+        Some(bearer) => bearer,
+        None => return Err(CheckFirebaseErr::TokenDoeNotExist),
+    };
+    debug!("bearer: {:?}", bearer);
+    let user_local_id = match auth.get_user_info(bearer.to_str().unwrap()).await {
+        Ok(user) => user.local_id,
+        Err(_) => return Err(CheckFirebaseErr::UserFirebaseNotFound),
+
+    };
+    debug!("auther_id: {:?}", user_local_id);
+    Ok(user_local_id)
+}
