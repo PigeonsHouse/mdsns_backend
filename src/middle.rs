@@ -3,7 +3,7 @@ use actix_web::body::MessageBody;
 use actix_web::dev::{ServiceResponse, ServiceRequest};
 use actix_web_lab::middleware::Next;
 use fireauth::FireAuth;
-use log::{info, debug};
+use log::debug;
 use crate::db::establish_connection;
 use crate::cruds::{search_user_from_db, register_user};
 
