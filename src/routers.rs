@@ -41,7 +41,10 @@ pub async fn get_post_info(post_id: Path<String>) -> Result<HttpResponse, Error>
 #[post("/favorites/{post_id}")]
 pub async fn post_favorite(post_id: Path<String>) -> Result<HttpResponse, Error> {
     let conn = &mut establish_connection();
-    let user_id = String::from("hoge_id");
+    let user_id: String = match middle_get_user_id(post_req).await {
+        Ok(id) => id,
+        Err(_) => return Ok(HttpResponse::Unauthorized().body("token is missed")),
+    };
     let post_info = match add_favorite(conn, user_id, post_id.into_inner()) {
         Ok(p) => p,
         Err(e) => return match e {
@@ -56,7 +59,10 @@ pub async fn post_favorite(post_id: Path<String>) -> Result<HttpResponse, Error>
 #[delete("/favorites/{post_id}")]
 pub async fn delete_favorite(post_id: Path<String>) -> Result<HttpResponse, Error> {
     let conn = &mut establish_connection();
-    let user_id = String::from("hoge_id");
+    let user_id: String = match middle_get_user_id(post_req).await {
+        Ok(id) => id,
+        Err(_) => return Ok(HttpResponse::Unauthorized().body("token is missed")),
+    };
     let post_info = match remove_favorite(conn, user_id, post_id.into_inner()) {
         Ok(p) => p,
         Err(e) => return match e {
