@@ -39,7 +39,7 @@ pub async fn get_post_info(post_id: Path<String>) -> Result<HttpResponse, Error>
 }
 
 #[post("/favorites/{post_id}")]
-pub async fn post_favorite(post_id: Path<String>) -> Result<HttpResponse, Error> {
+pub async fn post_favorite(post_req: HttpRequest, post_id: Path<String>) -> Result<HttpResponse, Error> {
     let conn = &mut establish_connection();
     let user_id: String = match middle_get_user_id(post_req).await {
         Ok(id) => id,
@@ -57,7 +57,7 @@ pub async fn post_favorite(post_id: Path<String>) -> Result<HttpResponse, Error>
 }
 
 #[delete("/favorites/{post_id}")]
-pub async fn delete_favorite(post_id: Path<String>) -> Result<HttpResponse, Error> {
+pub async fn delete_favorite(post_req: HttpRequest, post_id: Path<String>) -> Result<HttpResponse, Error> {
     let conn = &mut establish_connection();
     let user_id: String = match middle_get_user_id(post_req).await {
         Ok(id) => id,
