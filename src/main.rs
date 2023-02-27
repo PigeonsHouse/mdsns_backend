@@ -27,6 +27,7 @@ async fn main() -> std::io::Result<()> {
                     .service(routers::get_post_list)
                     .service(routers::get_post_info)
                     .service(routers::post_md)
+                    .service(routers::post_favorite)
             )
     })
         .bind(("127.0.0.1", 8080))?

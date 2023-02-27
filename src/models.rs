@@ -3,7 +3,7 @@ use chrono::NaiveDateTime;
 use diesel::prelude::{Queryable, Identifiable, Associations, Selectable, Insertable};
 use std::cmp::PartialEq;
 use uuid::Uuid;
-use crate::schema::{users, posts};
+use crate::schema::{users, posts, favorites};
 
 #[derive(Serialize, Identifiable, Queryable, Selectable, PartialEq, Debug)]
 #[diesel(table_name = users)]
@@ -68,4 +68,11 @@ pub struct NewUser<'a> {
     pub id: &'a String,
     pub name: &'a String,
     pub email: &'a String,
+}
+
+#[derive(Insertable)]
+#[diesel(table_name = favorites)]
+pub struct NewFavorite<'a> {
+    pub user_id: &'a String,
+    pub post_id: &'a Uuid
 }
