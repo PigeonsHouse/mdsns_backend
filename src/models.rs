@@ -1,6 +1,6 @@
 use serde::{Serialize, Deserialize};
 use chrono::NaiveDateTime;
-use diesel::prelude::{Queryable, Identifiable, Associations, Selectable};
+use diesel::prelude::{Queryable, Identifiable, Associations, Selectable, Insertable};
 use std::cmp::PartialEq;
 use uuid::Uuid;
 use crate::schema::{users, posts};
@@ -11,6 +11,8 @@ pub struct User {
     pub id: String,
     pub name: String,
     pub description: Option<String>,
+    #[serde(skip)]
+    pub email: String,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime
 }
@@ -44,4 +46,11 @@ pub struct PostInfo {
     pub favorited_by: Vec<User>,
     pub favorite_count: i64,
     pub replied_count: i64,
+}
+#[derive(Insertable)]
+#[diesel(table_name = users)]
+pub struct NewUser<'a> {
+    pub id: &'a String,
+    pub name: &'a String,
+    pub email: &'a String,
 }

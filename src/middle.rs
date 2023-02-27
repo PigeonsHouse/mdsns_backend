@@ -5,13 +5,14 @@ use actix_web_lab::middleware::Next;
 use fireauth::FireAuth;
 use log::debug;
 use crate::db::establish_connection;
-use crate::cruds::search_user_from_db;
+use crate::cruds::{search_user_from_db, register_user};
 
 #[derive(Debug)]
 pub enum CheckFirebaseErr {
     TokenDoeNotExist,
     UserFirebaseNotFound,
     UserDbNotFound,
+    InternalDbError,
 }
 
 pub type CheckFirebaseResult = Result<bool, CheckFirebaseErr>;
@@ -42,7 +43,7 @@ pub async fn check_firebase(request: &HttpRequest) -> CheckFirebaseResult {
                 Ok(user) => user,
                 Err(_) => return Err(CheckFirebaseErr::UserFirebaseNotFound),
             };
-            
+            register_user(&mut conn, &user_info.local_id, &user_info.local_id, &user_info.email);
         },
     };
 
@@ -58,6 +59,7 @@ pub async fn middle_auth(
         Err(e) => match e {
             CheckFirebaseErr::TokenDoeNotExist => return Err(actix_web::error::ErrorUnauthorized("missing token header")),
             CheckFirebaseErr::UserFirebaseNotFound => return Err(actix_web::error::ErrorUnauthorized("token does not exist on Firebase")),
+            CheckFirebaseErr::InternalDbError => return Err(actix_web::error::ErrorInternalServerError("register at local DB is failed")),
             CheckFirebaseErr::UserDbNotFound => return Ok(next.call(req).await?)
         },
         Ok(_) => return Ok(next.call(req).await?)
