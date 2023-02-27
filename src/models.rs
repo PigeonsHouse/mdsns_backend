@@ -47,6 +47,21 @@ pub struct PostInfo {
     pub favorite_count: i64,
     pub replied_count: i64,
 }
+
+#[derive(Deserialize)]
+pub struct PostPost {
+    pub content_md: String,
+    pub content_html: String,
+}
+
+#[derive(Insertable)]
+#[diesel(table_name = posts)]
+pub struct NewPost<'a> {
+    pub author_id: &'a String,
+    pub content_md: &'a String,
+    pub content_html: &'a String,
+}
+
 #[derive(Insertable)]
 #[diesel(table_name = users)]
 pub struct NewUser<'a> {

@@ -71,3 +71,20 @@ pub async fn middle_auth(
     }
 }
 
+pub async fn middle_get_user_id(request: HttpRequest) -> Result<String, CheckFirebaseErr> {
+    let api_key: String = std::env::var("FIREBASE_API").expect("FIREBASE_API does not exist !");
+    let auth = FireAuth::new(api_key);
+    // Authorization Header check
+    let bearer = match request.headers().get("Authorization") {
+        Some(bearer) => bearer,
+        None => return Err(CheckFirebaseErr::TokenDoeNotExist),
+    };
+    debug!("bearer: {:?}", bearer);
+    let user_local_id = match auth.get_user_info(bearer.to_str().unwrap()).await {
+        Ok(user) => user.local_id,
+        Err(_) => return Err(CheckFirebaseErr::UserFirebaseNotFound),
+
+    };
+    debug!("auther_id: {:?}", user_local_id);
+    Ok(user_local_id)
+}
