@@ -21,6 +21,9 @@ async fn main() -> std::io::Result<()> {
             .service(
                 web::scope("/api")
                     .service(routers::get_post_list)
+                    .service(routers::hello)
+                    .service(routers::post_md)
+
             )
     })
         .bind(("127.0.0.1", 8080))?
