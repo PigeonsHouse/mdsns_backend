@@ -17,7 +17,7 @@ async fn main() -> std::io::Result<()> {
     env_logger::init_from_env(Env::default().default_filter_or("debug"));
     HttpServer::new(|| {
         let cors = Cors::default()
-            .allowed_origin("*")
+            .allowed_origin("ALL")
             .max_age(3600);
         App::new()
             .wrap(cors)
