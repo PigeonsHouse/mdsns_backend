@@ -3,11 +3,12 @@ use std::fmt::Debug;
 use std::str::FromStr;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
-use diesel::insert_into;
+use diesel::{insert_into, delete};
 use diesel::result::Error;
+use log::error;
 use uuid::Uuid;
-use crate::schema::{posts, users};
-use crate::models::{User, NewUser, Post, PostInfo, PostPost, NewPost};
+use crate::schema::{posts, users, favorites};
+use crate::models::{User, NewUser, Post, PostInfo, PostPost, NewPost, NewFavorite};
 
 fn get_list_users(conn: &mut PgConnection) -> Vec<User> {
     users::dsl::users.select(User::as_select()).load::<User>(conn).expect("Error getting new user")
@@ -118,3 +119,84 @@ pub fn create_new_post (
     }
 }
 
+#[derive(Debug)]
+pub enum FavoriteErr {
+    InvalidParam,
+    NotFound,
+    InternalServerError
+}
+
+pub fn add_favorite(conn: &mut PgConnection, user_id: String, post_id: String) -> Result<PostInfo, FavoriteErr> {
+    // post_idのキャスト兼post_idがUUIDになれるStringか検証
+    let post_uuid = match Uuid::from_str(&post_id) {
+        Ok(id) => id,
+        Err(_) => return Err(FavoriteErr::InvalidParam)
+    };
+    // post_idがpostsにあるか検証
+    match posts::table.find(post_uuid).select(posts::id).get_result::<Uuid>(conn) {
+        Ok(_) => (),
+        Err(e) => return match e {
+            Error::NotFound => Err(FavoriteErr::NotFound),
+            _ => Err(FavoriteErr::InternalServerError)
+        }
+    }
+    // favoriteをすでに押していないか検証
+    match favorites::table.find((&user_id, post_uuid)).select(favorites::post_id).get_result::<Uuid>(conn) {
+        // 押してたらスルー
+        Ok(_) => (),
+        Err(e) => match e {
+            // 押してなかったらデータ追加
+            Error::NotFound => {
+                let new_favorite = NewFavorite{ user_id: &user_id, post_id: &post_uuid };
+                match insert_into(favorites::table).values(&new_favorite).execute(conn) {
+                    Ok(_) => (),
+                    Err(e) => return Err(FavoriteErr::InternalServerError)
+                };
+            },
+            // エラーはエラー
+            _ => return Err(FavoriteErr::InternalServerError)
+        }
+    }
+    // 更新されたpostsを取得してreturn
+    return match get_post_info_by_id(conn, post_id) {
+        Ok(p) => Ok(p),
+        Err(_) => Err(FavoriteErr::InternalServerError)
+    }
+}
+
+pub fn remove_favorite(conn: &mut PgConnection, user_id: String, post_id: String) -> Result<PostInfo, FavoriteErr> {
+    // post_idのキャスト兼post_idがUUIDになれるStringか検証
+    let post_uuid = match Uuid::from_str(&post_id) {
+        Ok(id) => id,
+        Err(_) => return Err(FavoriteErr::InvalidParam)
+    };
+    // post_idがpostsにあるか検証
+    match posts::table.find(&post_uuid).select(posts::id).get_result::<Uuid>(conn) {
+        Ok(_) => (),
+        Err(e) => return match e {
+            Error::NotFound => Err(FavoriteErr::NotFound),
+            _ => Err(FavoriteErr::InternalServerError)
+        }
+    }
+    // favoriteをすでに削除していないか検証
+    match favorites::table.find((&user_id, &post_uuid)).select(favorites::post_id).get_result::<Uuid>(conn) {
+        // 押してたらデータ削除
+        Ok(_) => {
+            match delete(favorites::dsl::favorites.filter(favorites::post_id.eq(&post_uuid)).filter(favorites::user_id.eq(&user_id))).execute(conn) {
+                Ok(_) => (),
+                Err(e) => return Err(FavoriteErr::InternalServerError)
+            }
+        },
+        Err(e) => match e {
+            // 押してなかったらスルー
+            Error::NotFound => (),
+            // エラーはエラー
+            _ => return Err(FavoriteErr::InternalServerError)
+        }
+    }
+    // 更新されたpostsを取得してreturn
+    return match get_post_info_by_id(conn, post_id) {
+        Ok(p) => Ok(p),
+        Err(_) => Err(FavoriteErr::InternalServerError)
+    }
+}
