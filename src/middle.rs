@@ -48,7 +48,7 @@ pub async fn check_firebase(request: &HttpRequest) -> CheckFirebaseResult {
     let api_key: String = std::env::var("FIREBASE_API").expect("FIREBASE_API does not exist !");
     let auth = FireAuth::new(api_key);
     // OAuth or Email ?
-    match request.headers().get("Google") {
+    match request.headers().get("google") {
         Some(g_bearer) => return match oauth_google(g_bearer).await {
             Ok(_) => return Ok(true),
             Err(_) => return Err(CheckFirebaseErr::UserFirebaseNotFound),
