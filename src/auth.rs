@@ -58,14 +58,14 @@ pub async fn validate_token(token: &str) -> Result<bool, ServiceError> {
         Err(_) => return Err(ServiceError::JWKSFetchError),
     };
 
-    println!("kid:{:?}", kid);
+    debug!("kid:{:?}", kid);
 
     let jwk = jwks.find(&kid).expect("Specified key not found in set");
 
-    println!("jwk:{:?}", jwk);
+    debug!("jwk:{:?}", jwk);
 
     let res = validate(token, jwk, validations);
-    println!("res.is_ok():{}", res.is_ok());
+    debug!("res.is_ok():{}", res.is_ok());
     Ok(res.is_ok())
 }
 
