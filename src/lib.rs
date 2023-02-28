@@ -8,3 +8,4 @@ pub mod routers;
 pub mod schema;
 pub mod utils;
 pub mod middle;
+pub mod auth;

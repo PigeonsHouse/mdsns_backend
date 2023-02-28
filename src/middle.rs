@@ -1,12 +1,38 @@
-use actix_web::{http, HttpRequest};
+use actix_web::{
+    http::{self, header::HeaderValue},
+    HttpRequest, Error
+};
 use actix_web::body::MessageBody;
 use actix_web::dev::{ServiceResponse, ServiceRequest};
 use actix_web_lab::middleware::Next;
 use fireauth::FireAuth;
 use log::debug;
+use http::Method;
+use serde::Deserialize;
 use crate::db::establish_connection;
 use crate::cruds::{search_user_from_db, register_user};
-use http::Method;
+use crate::auth::validate_token;
+
+#[derive(Deserialize)]
+pub struct AuthRequest {
+    code: String,
+    state: String,
+    scope: String,
+}
+
+pub async fn oauth_google(req: &HeaderValue) -> Result<bool, Error>{
+    debug!("Started Google OAuth 2.0 modoki !");
+    match validate_token(req.to_str().unwrap()).await {
+        Ok(res) => {
+            if res {
+                Ok(res)
+            } else {
+                Err(actix_web::error::ErrorInternalServerError("kani!"))
+            }
+        }
+        Err(_) => Err(actix_web::error::ErrorInternalServerError("uni!")),
+    }
+}
 
 #[derive(Debug)]
 pub enum CheckFirebaseErr {
@@ -21,6 +47,14 @@ pub type CheckFirebaseResult = Result<bool, CheckFirebaseErr>;
 pub async fn check_firebase(request: &HttpRequest) -> CheckFirebaseResult {
     let api_key: String = std::env::var("FIREBASE_API").expect("FIREBASE_API does not exist !");
     let auth = FireAuth::new(api_key);
+    // OAuth or Email ?
+    match request.headers().get("Google") {
+        Some(g_bearer) => return match oauth_google(g_bearer).await {
+            Ok(_) => return Ok(true),
+            Err(_) => return Err(CheckFirebaseErr::UserFirebaseNotFound),
+        },
+        None => (),
+    };
     // Authorization Header check
     let bearer = match request.headers().get("Authorization") {
         Some(bearer) => bearer,
