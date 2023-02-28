@@ -1,16 +1,14 @@
 use core::fmt;
 use std::fmt::Debug;
 use std::str::FromStr;
-use actix_web_lab::__reexports::tracing::field::debug;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
-use diesel::dsl::count;
-use diesel::{insert_into, delete, select, sql_query, sql_types};
+use diesel::{insert_into, delete};
 use diesel::result::Error;
 use log::debug;
 use uuid::Uuid;
 use crate::schema::{posts, users, favorites};
-use crate::models::{User, NewUser, Post, PostInfo, PostPost, NewPost, NewFavorite, NewReply, Favorite};
+use crate::models::{User, NewUser, Post, PostInfo, NewPost, NewFavorite, NewReply, Favorite};
 
 fn get_list_users(conn: &mut PgConnection) -> Vec<User> {
     users::dsl::users.select(User::as_select()).load::<User>(conn).expect("Error getting new user")
@@ -211,7 +209,7 @@ pub fn add_favorite(conn: &mut PgConnection, user_id: String, post_id: String) -
                 let new_favorite = NewFavorite{ user_id: &user_id, post_id: &post_uuid };
                 match insert_into(favorites::table).values(&new_favorite).execute(conn) {
                     Ok(_) => (),
-                    Err(e) => return Err(FavoriteErr::InternalServerError)
+                    Err(_) => return Err(FavoriteErr::InternalServerError)
                 };
             },
             // エラーはエラー
