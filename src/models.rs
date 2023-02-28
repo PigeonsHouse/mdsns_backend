@@ -1,18 +1,18 @@
 use serde::{Serialize, Deserialize};
 use chrono::NaiveDateTime;
-use diesel::prelude::{Queryable, Identifiable, Associations, Selectable, Insertable};
+use diesel::prelude::{Queryable, Identifiable, Associations, Selectable, Insertable, QueryableByName};
 use std::cmp::PartialEq;
 use uuid::Uuid;
 use crate::schema::{users, posts, favorites};
 
-#[derive(Serialize, Identifiable, Queryable, Selectable, PartialEq, Debug)]
+#[derive(Serialize, Identifiable, Queryable, Selectable, QueryableByName, PartialEq, Debug, Clone)]
 #[diesel(table_name = users)]
 pub struct User {
     pub id: String,
     pub name: String,
-    pub description: Option<String>,
     #[serde(skip)]
     pub email: String,
+    pub description: Option<String>,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime
 }
@@ -28,7 +28,7 @@ pub struct ReplyTo {
     pub reply_to: Option<Uuid>
 }
 
-#[derive(Queryable, Serialize, Identifiable, Associations, Selectable, PartialEq)]
+#[derive(Queryable, Serialize, Identifiable, Associations, Selectable, QueryableByName, PartialEq, Debug, Clone)]
 #[diesel(table_name = posts)]
 #[diesel(belongs_to(User, foreign_key = author_id))]
 pub struct Post {
@@ -89,4 +89,12 @@ pub struct NewUser<'a> {
 pub struct NewFavorite<'a> {
     pub user_id: &'a String,
     pub post_id: &'a Uuid
+}
+
+#[derive(Queryable, Serialize, Selectable)]
+#[diesel(table_name = favorites)]
+pub struct Favorite {
+    pub user_id: String,
+    pub post_id: Uuid,
+    pub created_at: NaiveDateTime
 }

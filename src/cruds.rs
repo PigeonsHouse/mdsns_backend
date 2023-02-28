@@ -1,14 +1,16 @@
 use core::fmt;
 use std::fmt::Debug;
 use std::str::FromStr;
+use actix_web_lab::__reexports::tracing::field::debug;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
-use diesel::{insert_into, delete};
+use diesel::dsl::count;
+use diesel::{insert_into, delete, select, sql_query, sql_types};
 use diesel::result::Error;
 use log::debug;
 use uuid::Uuid;
 use crate::schema::{posts, users, favorites};
-use crate::models::{User, NewUser, Post, PostInfo, PostPost, NewPost, NewFavorite, NewReply};
+use crate::models::{User, NewUser, Post, PostInfo, PostPost, NewPost, NewFavorite, NewReply, Favorite};
 
 fn get_list_users(conn: &mut PgConnection) -> Vec<User> {
     users::dsl::users.select(User::as_select()).load::<User>(conn).expect("Error getting new user")
@@ -46,16 +48,61 @@ pub fn get_posts(conn: &mut PgConnection, length: Option<i32>, pages: Option<i32
         Some(p) => p,
         None => 0
     };
-    let post_data = posts::table.inner_join(users::table)
-        .select((Post::as_select(), User::as_select()))
-        .filter(posts::reply_at.is_null())
-        .limit(i64::from(length))
-        .offset(i64::from(pages * length))
-        .load::<(Post, User)>(conn).unwrap();
+    // https://docs.rs/diesel/latest/diesel/associations/index.html
+    // https://diesel.rs/guides/relations.html#reading-data
+    // https://diesel.rs/news/2_0_0_release.html#support-for-group-by-clauses
+    //
+    // let post_data = posts::table.inner_join(users::table).left_join(favorites::table)
+    //     .group_by(posts::id).group_by(users::id)
+    //     .select((Post::as_select(), User::as_select(), count(favorites::post_id)))
+    //     .filter(posts::reply_at.is_null())
+    //     .limit(i64::from(length))
+    //     .offset(i64::from(pages * length))
+    //     .load::<(Post, User, i64)>(conn).unwrap();
+    // let reply = diesel::alias!(posts as reply);
+    // let post_data = posts::table.inner_join(users::table)
+    //     .left_join(favorites::table.on(posts::id).eq(favorites::post_id))
+    //     .left_join(reply.on(posts::id).eq(reply.field(posts::reply_at)))
+    //     .group_by(posts::id).group_by(users::id)
+    //     .limit(i64::from(length))
+    //     .offset(i64::from(pages * length))
+    //     .select(( Post::as_select(), User::as_select(), count(favorites::post_id), count(reply.field(posts::id)) ))
+    //     .order(posts::created_at.desc())
+    //     .load::<(Post, User, i64, i64)>(conn).unwrap();
+
+    // let all_users = users::table.load::<User>(conn).unwrap();
+    // let all_posts = Post::belonging_to(&all_users)
+    //     .limit(i64::from(length))
+    //     .offset(i64::from(pages * length))
+    //     .load::<Post>(conn).unwrap()
+    //     .grouped_by(&all_users);
+    // let data = all_users.into_iter().zip(all_posts).collect::<Vec<_>>();
+    //
+    // for datum in data {
+    //     datum
+    // }
+
     let mut post_info = vec![];
-    for i in post_data {
-        post_info.push(PostInfo { base_post: i.0, author: i.1, favorited_by: vec![], favorite_count: 0, replied_count: 0 })
+    let all_posts = posts::table
+        .select(Post::as_select()).limit(i64::from(length)).offset(i64::from(pages * length))
+        .filter(posts::reply_at.is_null()).load::<Post>(conn).unwrap();
+    for post in all_posts {
+        let author = users::table.select(User::as_select()).filter(users::id.eq(&post.user_id)).first::<User>(conn).unwrap();
+        let favorited_list = favorites::table.select(Favorite::as_select()).filter(favorites::post_id.eq(&post.id)).load::<Favorite>(conn).unwrap();
+        let mut favorited_user_list = vec![];
+        for favorited in favorited_list {
+            favorited_user_list.push(users::table.select(User::as_select()).filter(users::id.eq(&favorited.user_id)).first::<User>(conn).unwrap());
+        }
+        let reply_id_list = posts::table.select(Post::as_select()).filter(posts::reply_at.eq(&post.id)).load::<Post>(conn).unwrap();
+        post_info.push(PostInfo {
+            base_post: post.clone(),
+            author,
+            favorite_count: favorited_user_list.clone().len() as i64,
+            favorited_by: favorited_user_list.clone(),
+            replied_count: reply_id_list.clone().len() as i64
+        })
     }
+
     Ok(post_info)
 }
 
@@ -71,18 +118,22 @@ pub fn get_post_info_by_id(conn: &mut PgConnection, post_id: String) -> Result<P
         Ok(id) => id,
         Err(_) => return Err(GetPostErr::InvalidParam)
     };
-    let post_data: (Post, User) = match posts::table.inner_join(users::table)
-        .select((Post::as_select(), User::as_select()))
-        .filter(posts::id.eq(post_uuid))
-        .first::<(Post, User)>(conn) {
-        Ok(data) => data,
-        Err(e) => return match e {
-            Error::NotFound => Err(GetPostErr::NotFound),
-            _ => Err(GetPostErr::InternalServerError)
-        }
-    };
+    let post: Post = posts::table.select(Post::as_select()).filter(posts::id.eq(post_uuid)).first::<Post>(conn).unwrap();
 
-    Ok(PostInfo { base_post: post_data.0, author: post_data.1, favorited_by: vec![], favorite_count: 0, replied_count: 0 })
+    let author = users::table.select(User::as_select()).filter(users::id.eq(&post.user_id)).first::<User>(conn).unwrap();
+    let favorited_list = favorites::table.select(Favorite::as_select()).filter(favorites::post_id.eq(&post.id)).load::<Favorite>(conn).unwrap();
+    let mut favorited_user_list = vec![];
+    for favorited in favorited_list {
+        favorited_user_list.push(users::table.select(User::as_select()).filter(users::id.eq(&favorited.user_id)).first::<User>(conn).unwrap());
+    }
+    let reply_id_list = posts::table.select(Post::as_select()).filter(posts::reply_at.eq(&post.id)).load::<Post>(conn).unwrap();
+    Ok(PostInfo {
+        base_post: post.clone(),
+        author,
+        favorite_count: favorited_user_list.clone().len() as i64,
+        favorited_by: favorited_user_list.clone(),
+        replied_count: reply_id_list.clone().len() as i64
+    })
 }
 
 #[derive(Debug)]
@@ -181,7 +232,7 @@ pub fn remove_favorite(conn: &mut PgConnection, user_id: String, post_id: String
         Err(_) => return Err(FavoriteErr::InvalidParam)
     };
     // post_idがpostsにあるか検証
-    match posts::table.find(&post_uuid).select(posts::id).get_result::<Uuid>(conn) {
+    match posts::table.find(&post_uuid).select(Post::as_select()).load::<Post>(conn) {
         Ok(_) => (),
         Err(e) => return match e {
             Error::NotFound => Err(FavoriteErr::NotFound),
@@ -189,7 +240,7 @@ pub fn remove_favorite(conn: &mut PgConnection, user_id: String, post_id: String
         }
     }
     // favoriteをすでに削除していないか検証
-    match favorites::table.find((&user_id, &post_uuid)).select(favorites::post_id).get_result::<Uuid>(conn) {
+    match favorites::table.find((&user_id, &post_uuid)).select(Favorite::as_select()).load::<Favorite>(conn) {
         // 押してたらデータ削除
         Ok(_) => {
             match delete(favorites::dsl::favorites.filter(favorites::post_id.eq(&post_uuid)).filter(favorites::user_id.eq(&user_id))).execute(conn) {
