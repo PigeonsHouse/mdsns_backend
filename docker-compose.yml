@@ -8,6 +8,12 @@ services:
       - 5432:5432
     volumes:
       - dbdata:/var/lib/postgresql/data
+  adminer:
+    image: adminer:latest
+    ports:
+      - 8888:8080
+    depends_on:
+      - db
 
 volumes:
   dbdata: null
